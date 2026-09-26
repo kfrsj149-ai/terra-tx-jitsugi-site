@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>集計 | TERRA TX</title>
+<style>
+  :root{
+    --bg:#0f2a1e; --bg2:#13402c; --panel:#194d35; --border:#2c6647;
+    --silver:#eef1ec; --silver-dim:#a9bdae; --accent:#c9781f;
+    --font: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--silver); font-family:var(--font); line-height:1.7; }
+  .wrap{max-width:760px; margin:0 auto; padding:20px;}
+  a.back{font-size:12px; color:var(--silver-dim); text-decoration:none; display:inline-block; margin-bottom:16px;}
+  h1{font-size:20px; margin:0 0 20px;}
+  h2{font-size:13px; letter-spacing:0.15em; text-transform:uppercase; color:var(--silver-dim); margin:32px 0 12px;}
+
+  /* ログイン画面 */
+  #loginScreen{max-width:360px; margin:80px auto; padding:0 20px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12.5px; color:var(--silver-dim); margin-bottom:6px;}
+  .field input{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--border);
+    background:var(--panel); color:var(--silver); font-size:14px;
+  }
+  button{
+    background:var(--accent); color:#0f2a1e; font-weight:700; font-size:14px;
+    border:none; border-radius:10px; padding:12px 20px; cursor:pointer; width:100%;
+  }
+  #loginError{color:#ff8a8a; font-size:12.5px; margin-top:10px; min-height:16px;}
+
+  /* 集計画面 */
+  #dashScreen{display:none;}
+  .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;}
+  .signout{background:transparent; border:1px solid var(--border); color:var(--silver-dim); width:auto; padding:8px 14px; font-size:12.5px; font-weight:600;}
+
+  .cards{display:flex; gap:12px; margin-bottom:8px;}
+  .card{flex:1; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px;}
+  .card .num{font-size:28px; font-weight:800; color:var(--accent);}
+  .card .lbl{font-size:12px; color:var(--silver-dim); margin-top:4px;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th, td{text-align:left; padding:7px 8px; border-bottom:1px solid var(--border);}
+  th{color:var(--silver-dim); font-weight:600; font-size:11.5px;}
+  .bar-wrap{display:flex; align-items:center; gap:8px;}
+  .bar-bg{flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden;}
+  .bar-fill{height:100%; background:var(--accent);}
+
+  .leadtable{overflow-x:auto;}
+  .leadtable table{min-width:640px;}
+  .empty{color:var(--silver-dim); font-size:13px; padding:16px 0;}
+  #loadingMsg{color:var(--silver-dim); font-size:13px;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="wrap" style="padding:0">
+    <h1>管理者ログイン</h1>
+    <div class="field">
+      <label>メールアドレス</label>
+      <input type="email" id="loginEmail" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>パスワード</label>
+      <input type="password" id="loginPassword" autocomplete="current-password">
+    </div>
+    <button id="loginBtn">ログイン</button>
+    <div id="loginError"></div>
+  </div>
+</div>
+
+<div id="dashScreen">
+  <div class="wrap">
+    <a class="back" href="../">← TERRA TX トップへ</a>
+    <div class="topbar">
+      <h1 style="margin:0">実技トラッカー 集計</h1>
+      <button class="signout" id="signoutBtn">ログアウト</button>
+    </div>
+
+    <div id="loadingMsg">読み込み中...</div>
+
+    <div id="content" style="display:none">
+      <div class="cards">
+        <div class="card"><div class="num" id="statUsers">-</div><div class="lbl">ユニークユーザー数（アンケート回答者）</div></div>
+        <div class="card"><div class="num" id="statRecords">-</div><div class="lbl">練習記録の総件数</div></div>
+      </div>
+
+      <h2>地域別</h2>
+      <div id="byRegion"></div>
+
+      <h2>会社が行っている業種</h2>
+      <div id="byIndustry"></div>
+
+      <h2>会社規模</h2>
+      <div id="bySize"></div>
+
+      <h2>重機保有台数</h2>
+      <div id="byMachine"></div>
+
+      <h2>日報・稼働記録の管理方法</h2>
+      <div id="byReport"></div>
+
+      <h2>不満な点</h2>
+      <div id="byPain"></div>
+
+      <h2>リード一覧</h2>
+      <div class="leadtable">
+        <table>
+          <thead>
+            <tr><th>日時</th><th>お名前</th><th>会社名</th><th>地域</th><th>連絡先</th></tr>
+          </thead>
+          <tbody id="leadRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDhzezMTKiLiBdELqVaEozgls886JREQ3Q",
+    authDomain: "terra-tx-jitsugi.firebaseapp.com",
+    projectId: "terra-tx-jitsugi",
+    storageBucket: "terra-tx-jitsugi.firebasestorage.app",
+    messagingSenderId: "466059653465",
+    appId: "1:466059653465:web:26606e628afbaa53b4dc48"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  const LABELS = {
+    region: { hokkaido:"北海道", tohoku:"東北", kanto:"関東", chubu:"中部", kinki:"近畿", chugoku:"中国", shikoku:"四国", kyushu_okinawa:"九州・沖縄" },
+    size: { "1-5":"1〜5人", "6-20":"6〜20人", "21-50":"21〜50人", "51-":"51人以上", individual:"個人事業" },
+    industry: { kaibatsu:"皆伐", kanbatsu:"間伐", zorin:"造林・育林", other:"その他" },
+    machineCount: { "0":"0台", "5-":"5台以上", "10-":"10台以上", "20-":"20台以上" },
+    reportMethod: { paper:"紙（そのまま保管）", paper_to_excel:"紙→Excel転記", excel:"最初からExcel等", system:"専用システム導入済み", none:"特に管理していない", other:"その他" },
+    painPoints: { aggregation:"集計に時間がかかる", paper:"紙の管理が煩雑", transcribe:"紙→Excel転記が二度手間", fuel:"燃料使用量の把握が不正確", visibility:"稼働状況が見えにくい", tax_form:"免税軽油の申請書類が大変", none:"特にない", other:"その他" },
+  };
+
+  function bar(label, count, max){
+    const pct = max > 0 ? Math.round((count / max) * 100) : 0;
+    return `<tr><td style="width:40%">${label}</td><td>
+      <div class="bar-wrap">
+        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <span style="width:28px; text-align:right; display:inline-block">${count}</span>
+      </div>
+    </td></tr>`;
+  }
+
+  function renderBreakdown(elId, counts, isMulti){
+    const el = document.getElementById(elId);
+    const entries = Object.entries(counts).sort((a,b)=> b[1]-a[1]);
+    if(entries.length === 0){ el.innerHTML = '<div class="empty">データなし</div>'; return; }
+    const max = Math.max(...entries.map(e=>e[1]));
+    el.innerHTML = `<table><tbody>${entries.map(([k,v])=> bar(k, v, max)).join("")}</tbody></table>`;
+  }
+
+  async function loadDashboard(){
+    document.getElementById("loadingMsg").style.display = "block";
+    document.getElementById("content").style.display = "none";
+    try{
+      const snap = await getDocs(collection(db, "jitsugi_practice"));
+      const surveys = [];
+      let recordCount = 0;
+      snap.forEach(doc=>{
+        const d = doc.data();
+        if(d.type === "survey") surveys.push(d);
+        else if(d.type === "practice_record") recordCount++;
+      });
+
+      document.getElementById("statUsers").textContent = surveys.length;
+      document.getElementById("statRecords").textContent = recordCount;
+
+      const regionCounts = {}, sizeCounts = {}, industryCounts = {}, machineCounts = {}, reportCounts = {}, painCounts = {};
+      surveys.forEach(s=>{
+        const region = LABELS.region[s.region] || s.region || "不明";
+        regionCounts[region] = (regionCounts[region]||0) + 1;
+
+        const size = LABELS.size[s.size] || s.size || "不明";
+        sizeCounts[size] = (sizeCounts[size]||0) + 1;
+
+        (s.industry||[]).forEach(i=>{
+          const label = LABELS.industry[i] || i;
+          industryCounts[label] = (industryCounts[label]||0) + 1;
+        });
+
+        const mc = LABELS.machineCount[s.machineCount] || s.machineCount || "不明";
+        machineCounts[mc] = (machineCounts[mc]||0) + 1;
+
+        const rm = LABELS.reportMethod[s.reportMethod] || s.reportMethod || "不明";
+        reportCounts[rm] = (reportCounts[rm]||0) + 1;
+
+        (s.painPoints||[]).forEach(p=>{
+          const label = LABELS.painPoints[p] || p;
+          painCounts[label] = (painCounts[label]||0) + 1;
+        });
+      });
+
+      renderBreakdown("byRegion", regionCounts);
+      renderBreakdown("bySize", sizeCounts);
+      renderBreakdown("byIndustry", industryCounts);
+      renderBreakdown("byMachine", machineCounts);
+      renderBreakdown("byReport", reportCounts);
+      renderBreakdown("byPain", painCounts);
+
+      const sortedLeads = [...surveys].sort((a,b)=>{
+        const ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+        const tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+        return tb - ta;
+      });
+      const leadRows = document.getElementById("leadRows");
+      if(sortedLeads.length === 0){
+        leadRows.innerHTML = '<tr><td colspan="5" class="empty">まだリードがありません</td></tr>';
+      }else{
+        leadRows.innerHTML = sortedLeads.map(s=>{
+          let dateStr = "-";
+          if(s.createdAt && s.createdAt.toDate){
+            const d = s.createdAt.toDate();
+            dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+          }
+          const region = LABELS.region[s.region] || s.region || "-";
+          return `<tr>
+            <td>${dateStr}</td>
+            <td>${s.name || "-"}</td>
+            <td>${s.company || "-"}</td>
+            <td>${region}</td>
+            <td>${s.contact || "-"}</td>
+          </tr>`;
+        }).join("");
+      }
+
+      document.getElementById("loadingMsg").style.display = "none";
+      document.getElementById("content").style.display = "block";
+    }catch(err){
+      document.getElementById("loadingMsg").textContent = "読み込みに失敗しました: " + (err && err.message);
+      console.error(err);
+    }
+  }
+
+  onAuthStateChanged(auth, (user)=>{
+    if(user){
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("dashScreen").style.display = "block";
+      loadDashboard();
+    }else{
+      document.getElementById("loginScreen").style.display = "block";
+      document.getElementById("dashScreen").style.display = "none";
+    }
+  });
+
+  document.getElementById("loginBtn").addEventListener("click", async ()=>{
+    const email = document.getElementById("loginEmail").value.trim();
+    const password = document.getElementById("loginPassword").value;
+    const errEl = document.getElementById("loginError");
+    errEl.textContent = "";
+    try{
+      await signInWithEmailAndPassword(auth, email, password);
+    }catch(err){
+      errEl.textContent = "ログインに失敗しました。メールアドレスとパスワードをご確認ください。";
+      console.error(err);
+    }
+  });
+
+  document.getElementById("signoutBtn").addEventListener("click", ()=>{
+    signOut(auth);
+  });
+</script>
+</body>
+</html>

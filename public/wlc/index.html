@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Logging Scorer | TERRA TX</title>
+<style>
+  :root{
+    --bg:#0f2a1e; --bg2:#13402c; --panel:#194d35; --border:#2c6647;
+    --silver:#eef1ec; --silver-dim:#a9bdae;
+    --orange:#ff6600; --yellow:#ccff00;
+    --font: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--silver); font-family:var(--font); line-height:1.75;
+  }
+  .wrap{max-width:720px; margin:0 auto; padding:0 20px;}
+  a.back{font-size:12px; color:var(--silver-dim); text-decoration:none; display:inline-block; margin:20px 0;}
+
+  .hero{
+    background:linear-gradient(180deg, var(--bg2) 0%, var(--bg) 100%);
+    padding:20px 20px 44px; text-align:center; border-bottom:1px solid var(--border);
+  }
+  .logo{font-size:28px; font-weight:900; letter-spacing:0.02em; margin-bottom:10px;}
+  .logo .g{color:var(--yellow);} .logo .s{color:var(--orange);}
+  .sub{font-size:14px; color:var(--silver-dim); max-width:420px; margin:0 auto 22px;}
+  .price{
+    display:inline-flex; align-items:baseline; gap:6px; background:var(--panel);
+    border:1px solid var(--border); border-radius:12px; padding:12px 20px; margin-bottom:20px;
+  }
+  .price b{font-size:26px; color:var(--orange); font-weight:900;}
+  .price span{font-size:12px; color:var(--silver-dim);}
+  .cta{
+    display:inline-block; background:var(--orange); color:#0f2a1e; font-weight:900; font-size:15px;
+    text-decoration:none; padding:14px 32px; border-radius:10px;
+  }
+  .cta.secondary{
+    background:transparent; color:var(--silver-dim); border:1px solid var(--border);
+    font-weight:600; font-size:13px; padding:10px 22px; margin-top:12px;
+  }
+
+  section{padding:40px 0;}
+  h2{font-size:12px; letter-spacing:0.25em; text-transform:uppercase; color:var(--silver-dim); font-weight:700; margin:0 0 18px; text-align:center;}
+  .shots{display:flex; flex-direction:column; gap:14px;}
+  .shots img{width:100%; border-radius:12px; border:1px solid var(--border); display:block;}
+  .shots figcaption{font-size:12px; color:var(--silver-dim); text-align:center; margin-top:6px;}
+  figure{margin:0 0 24px;}
+
+  .events{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:28px;}
+  .events span{
+    background:var(--panel); border:1px solid var(--border); border-radius:999px;
+    padding:7px 14px; font-size:12.5px; color:var(--silver);
+  }
+
+  .flist{display:flex; flex-direction:column; gap:12px;}
+  .fitem{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:18px 20px;}
+  .fitem b{display:block; font-size:14.5px; color:var(--silver); margin-bottom:4px;}
+  .fitem span{font-size:13px; color:var(--silver-dim);}
+
+  .notice{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px;
+    font-size:12.5px; color:var(--silver-dim); text-align:center;
+  }
+
+  footer{border-top:1px solid var(--border); padding:32px 0 48px; text-align:center; font-size:12px; color:var(--silver-dim);}
+</style>
+</head>
+<body>
+<div class="wrap"><a class="back" href="../">← TERRA TX トップへ</a></div>
+
+<div class="hero">
+  <div class="logo"><span class="g">LOGGING</span> <span class="s">SCORER</span></div>
+  <p class="sub">世界伐木チャンピオンシップ（WLC）公式採点基準に準拠した、アスリート・スタッフのためのタイム計測・採点・分析ツール。</p>
+  <div class="price"><b>€49.99</b><span>/ 年間サブスクリプション</span></div>
+  <br>
+  <a class="cta" href="mailto:#">問い合わせる</a>
+</div>
+
+<div class="wrap">
+
+  <section>
+    <h2>対応種目</h2>
+    <div class="events">
+      <span>Tree Felling</span>
+      <span>Chain Fitting</span>
+      <span>Combined Precision Bucking</span>
+      <span>Precision Bucking</span>
+      <span>Limbing</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>実際の画面</h2>
+    <div class="shots">
+      <figure>
+        <img src="shots/score-screen.jpg" alt="採点入力画面">
+        <figcaption>種目ごとの計測項目を入力するだけで、配点基準に沿って自動採点</figcaption>
+      </figure>
+      <figure>
+        <img src="shots/stat-tiles.png" alt="スコアプレビュー">
+        <figcaption>タイム・計測点・ペナルティの内訳がその場で分かる</figcaption>
+      </figure>
+      <figure>
+        <img src="shots/standings.png" alt="順位表">
+        <figcaption>種目横断の総合順位をリアルタイムで表示</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>できること</h2>
+    <div class="flist">
+      <div class="fitem">
+        <b>公式ルールブック準拠</b>
+        <span>IALC公式Regelwerk「WORLD LOGGING CHAMPIONSHIPS」の配点基準に完全準拠。</span>
+      </div>
+      <div class="fitem">
+        <b>完全オフライン動作</b>
+        <span>外部サーバー非依存。会場の通信環境に左右されず、その場で計測・保存できます。</span>
+      </div>
+      <div class="fitem">
+        <b>ストップウォッチ／手入力どちらにも対応</b>
+        <span>タイム計測はその場でのストップウォッチ操作と、後からの手入力を切り替え可能。</span>
+      </div>
+      <div class="fitem">
+        <b>選手ごとの練習データ蓄積・分析</b>
+        <span>単なる採点だけでなく、選手自身のトレーニング記録・分析ツールとしても使えます。</span>
+      </div>
+      <div class="fitem">
+        <b>CSV出力・多言語対応</b>
+        <span>記録はCSVで書き出し可能。表示言語もWLC加盟国の主要言語に対応しています。</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="notice">現在、販売開始に向けて準備中です。価格・提供開始時期は変更になる場合があります。</div>
+  </section>
+
+</div>
+
+<footer>© TERRA TX</footer>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TERRA TX | 林業現場のためのプロダクト開発</title>
+<style>
+  :root{
+    --bg:#0f2a1e; --bg2:#13402c; --panel:#194d35; --border:#2c6647;
+    --silver:#eef1ec; --silver-dim:#a9bdae; --accent:#c7d2c9;
+    --font: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--silver);
+    font-family:var(--font); line-height:1.75;
+  }
+  .wrap{max-width:720px; margin:0 auto; padding:0 20px;}
+
+  /* ヒーロー */
+  .hero{
+    background:linear-gradient(180deg, var(--bg2) 0%, var(--bg) 100%);
+    padding:56px 20px 44px; text-align:center; border-bottom:1px solid var(--border);
+  }
+  .logo-img{max-width:260px; width:70%; height:auto; margin:0 auto 24px; display:block;}
+  .tagline{font-size:14.5px; color:var(--silver-dim); font-weight:500; letter-spacing:0.03em;}
+  .tagline b{color:var(--silver); font-weight:700;}
+
+  /* セクション共通 */
+  section{padding:48px 0;}
+  h2{
+    font-size:12px; letter-spacing:0.3em; text-transform:uppercase; color:var(--silver-dim);
+    font-weight:700; margin:0 0 22px; text-align:center;
+  }
+  .philosophy p{font-size:15.5px; color:#dde6df; margin:0 0 18px;}
+  .philosophy .lead{font-size:17px; color:var(--silver); font-weight:600;}
+
+  /* プロダクトカード */
+  .products{display:flex; flex-direction:column; gap:14px;}
+  .pcard{
+    display:block; background:var(--panel); border:1px solid var(--border); border-radius:16px;
+    padding:24px; text-decoration:none; color:inherit; position:relative; overflow:hidden;
+  }
+  .pcard::before{
+    content:""; position:absolute; top:0; left:0; width:3px; height:100%; background:var(--silver-dim);
+  }
+  .pstatus{
+    display:inline-block; font-size:10.5px; letter-spacing:0.12em; font-weight:700;
+    padding:3px 9px; border-radius:999px; margin-bottom:10px;
+  }
+  .pstatus.live{background:#1f5a3a; color:#9de8bb;}
+  .pstatus.soon{background:#4a3a1f; color:#e8c99d;}
+  .pcard.soon{opacity:0.6;}
+  .pname{font-size:19px; font-weight:800; letter-spacing:0.02em; margin:0 0 6px; color:var(--silver);}
+  .pdesc{font-size:13.5px; color:var(--silver-dim); margin:0;}
+  .parrow{position:absolute; right:22px; top:50%; transform:translateY(-50%); font-size:20px; color:var(--silver-dim);}
+
+  .lockup{width:100%; max-width:480px; display:block; margin:0 auto 8px;}
+
+  footer{
+    border-top:1px solid var(--border); padding:32px 0 48px; text-align:center;
+    font-size:12px; color:var(--silver-dim);
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <img class="logo-img" src="assets/logo-hero.jpg" alt="TERRA TX">
+  <div class="tagline"><b>Ultra-Performance</b> with <b>Zero Stress</b></div>
+</div>
+
+<div class="wrap">
+
+  <section class="philosophy">
+    <h2>About</h2>
+    <p class="lead">林業従事者自らが、現場のためにアプリを作っています。</p>
+    <p>既存の現場用アプリには、現場の実情に合わないものが多いと感じてきました。そこで、自らが使いたいと思えるツールを、自らの手で開発することにしました。</p>
+    <p>「現場の負担を軽減すること」と「現場の実データを収集すること」。この二つは本来相反する要素ですが、設計次第で両立が可能です。</p>
+    <p>また、林業の現場の多くは電波の届かない環境にあります。オフラインで確実に動作することは、開発における前提条件としています。</p>
+  </section>
+
+  <section>
+    <h2>Products</h2>
+    <div class="products">
+
+      <a class="pcard" href="jitsugi/">
+        <span class="pstatus live">公開中</span>
+        <div class="pname">実技練習トラッカー</div>
+        <p class="pdesc">林業技能検定1級・2級相当の実技試験（受け口・追い口作成作業）を、自分の測定値でその場で採点。練習を重ねるほど苦手な項目が見える化されます。</p>
+        <span class="parrow">›</span>
+      </a>
+
+      <a class="pcard soon" href="wlc/">
+        <span class="pstatus soon">近日公開</span>
+        <div class="pname">Logging Scorer（WLCスコアラー）</div>
+        <p class="pdesc">世界伐木チャンピオンシップ（WLC）の公式採点基準に準拠した、アスリート向けタイム計測・採点・トレーニング分析ツール。</p>
+        <span class="parrow">›</span>
+      </a>
+
+    </div>
+  </section>
+
+  <footer>
+    <img class="lockup" src="assets/logo-horizontal.jpg" alt="TERRA TX — TACTICAL TRANSFORMATION">
+    © TERRA TX
+  </footer>
+
+</div>
+</body>
+</html>

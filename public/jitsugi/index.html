@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>実技練習トラッカー | TERRA TX</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1b2f22; --surface:#24402f; --card:#20362a; --border:#3c5a45;
+    --text:#f5f1e6; --text-muted:#b9c4b6; --accent:#c9781f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Noto Sans JP', sans-serif; line-height:1.7;
+  }
+  .wrap{max-width:640px; margin:0 auto; padding:56px 20px 80px;}
+  .eyebrow{font-size:13px; color:var(--accent); font-weight:700; letter-spacing:1px; margin-bottom:12px;}
+  h1{font-size:clamp(26px, 6vw, 38px); font-weight:900; line-height:1.35; margin:0 0 16px;}
+  .lead{font-size:16px; color:var(--text-muted); margin:0 0 36px;}
+  .cta{
+    display:block; text-align:center; background:var(--accent); color:var(--bg);
+    font-weight:900; font-size:17px; text-decoration:none; padding:16px 24px;
+    border-radius:12px; margin:0 0 48px;
+  }
+  .cta:active{opacity:0.85;}
+  h2{font-size:19px; font-weight:700; margin:0 0 18px;}
+  .cards{display:flex; flex-direction:column; gap:12px; margin-bottom:48px;}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px 20px;
+  }
+  .card b{display:block; font-size:15px; margin-bottom:4px; color:var(--text);}
+  .card span{font-size:13.5px; color:var(--text-muted);}
+  .notice{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:20px; font-size:13px; color:var(--text-muted); margin-bottom:40px;
+  }
+  .notice b{color:var(--text);}
+  .notice ul{margin:10px 0 0; padding-left:20px;}
+  .notice li{margin-bottom:6px;}
+  footer{text-align:center; font-size:12px; color:var(--text-muted); border-top:1px solid var(--border); padding-top:20px;}
+  footer b{color:var(--text);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <a href="../" style="font-size:12px; color:var(--text-muted); text-decoration:none; display:inline-block; margin-bottom:20px;">← TERRA TX トップへ</a>
+
+  <div class="eyebrow">林業技能検定 1級・2級相当 実技試験対策</div>
+  <h1>受け口・つる幅・角度――<br>自分の癖、数字で見えていますか？</h1>
+  <p class="lead">
+    製作等作業試験（受け口・追い口作成作業）の練習を記録するだけで、目標値とのズレを自動で採点。
+    練習を重ねるほど、自分がどこで崩れやすいかが見えてきます。無料でご利用いただけます。
+  </p>
+
+  <a class="cta" href="app.html">無料でツールを使ってみる</a>
+
+  <h2>実際の画面</h2>
+  <div class="cards" style="margin-bottom:36px">
+    <img src="screenshot-points.jpg" alt="点数（参考値）表示の画面" style="width:100%; border-radius:14px; border:1px solid var(--border); display:block;">
+    <img src="screenshot-raw.jpg" alt="実測値表示の画面" style="width:100%; border-radius:14px; border:1px solid var(--border); display:block;">
+  </div>
+
+  <h2>できること</h2>
+  <div class="cards">
+    <div class="card">
+      <b>測定値を入れるだけで自動採点</b>
+      <span>受け口角度・深さ、つる幅・つる高、会合線水平などを入力すると、目標値との差から得点を自動計算します。</span>
+    </div>
+    <div class="card">
+      <b>点数（参考値）でも、実測値そのものでも確認可能</b>
+      <span>採点はあくまで目安。生の測定値を見たいときは「実測値で表示」に切り替えられます。</span>
+    </div>
+    <div class="card">
+      <b>練習を重ねるほど、クセが見えてくる</b>
+      <span>記録がたまると、項目ごとの平均得点・平均実測値が表示され、自分の傾向を客観視できます。</span>
+    </div>
+    <div class="card">
+      <b>安全チェックリストにも対応</b>
+      <span>保護具や安全行動のチェックも、必要な人だけオンにして記録できます。</span>
+    </div>
+  </div>
+
+  <div class="notice">
+    <b>ご利用前に</b>
+    <ul>
+      <li>採点の配点は開発者独自の予測であり、実際の技能検定の採点基準とは一切関係ありません。結果は合格を保証するものではありません。</li>
+      <li>1級・2級共通の測定項目に対応しています（丸太の傾斜、追いづるの指定有無など1級・2級で異なる仕様の項目は、1級専用の項目として別枠で表示されます）。</li>
+      <li>ご利用には簡単なアンケートへの回答（会社情報・連絡先等）が必要です。</li>
+      <li>データは端末のブラウザ内に保存されます。こまめなバックアップをおすすめします。</li>
+      <li>初回のご利用にはインターネット接続が必要です。</li>
+    </ul>
+  </div>
+
+  <footer>
+    運営：<b>TERRA TX</b>　お問い合わせ・削除のご依頼はTERRA TX公式Instagramアカウントのダイレクトメッセージまで
+  </footer>
+
+</div>
+</body>
+</html>

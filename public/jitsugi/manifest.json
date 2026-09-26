@@ -1,0 +1,17 @@
+{
+  "name": "技能検定実技練習測定・分析ツール",
+  "short_name": "実技トラッカー",
+  "description": "林業技能検定1級・2級対応の実技試験練習測定・分析ツール（TERRA TX）",
+  "start_url": "./app.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1b1f19",
+  "theme_color": "#1b1f19",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
