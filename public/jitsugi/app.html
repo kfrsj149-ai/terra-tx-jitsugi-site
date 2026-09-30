@@ -767,6 +767,13 @@ function resetPracticeState(){
 
 function renderPracticeStep(i){
   practiceStepIndex = i;
+  // 数値入力中にソフトキーボードが開いたままステップを切り替えると、端末によっては
+  // 次の画面のボタンがキーボードの裏に隠れて押せなくなることがあるため、
+  // ステップ遷移のたびに必ずフォーカスを外し、画面上部へスクロールし直す。
+  if(document.activeElement && document.activeElement !== document.body && typeof document.activeElement.blur === "function"){
+    document.activeElement.blur();
+  }
+  window.scrollTo(0, 0);
   document.getElementById("pStepError").textContent = "";
 
   const editBanner = document.getElementById("editBanner");
