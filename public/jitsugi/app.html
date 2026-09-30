@@ -420,6 +420,18 @@ function pointsFor(field, actualVal, noTsuru){
   return 0;
 }
 
+// ============================================================
+// 方向・傾きの付加情報（採点には一切影響しない任意メモ）
+// ・伐倒方向のズレ：立木から伐倒方向を見て左右どちらにズレたか
+// ・会合線水平：受け口水平切り時、立木の右に立ってチェーンソーを構えたときのバー先端が
+//   上がっていたか（先上がり）下がっていたか（先下がり）＝丸太の後ろから伐倒方向を見て左が高ければ先上がり
+// 未選択(null)のままでも記録は進められ、既存データには一切フラグを付けない。
+// ============================================================
+const FIELD_SIDE_OPTIONS = {
+  fellDir: [ {val:"left", label:"左"},     {val:"right", label:"右"} ],
+  level:   [ {val:"high", label:"先上がり"}, {val:"low",   label:"先下がり"} ],
+};
+
 function loadRecords(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -646,7 +658,17 @@ function renderStats(records){
         .filter(v=> v !== undefined && v !== null && v !== "")
         .map(Number);
       const noTsuruCount = records.filter(r => r.noTsuru && r.noTsuru.includes(f.key)).length;
-      if(vals.length === 0 && noTsuruCount === 0){
+      // 左右／先上がり・先下がりの内訳（選択があった記録のみ集計。未選択の過去データはカウントしない）
+      let sideCounts = null, sideTotal = 0;
+      if(FIELD_SIDE_OPTIONS[f.key]){
+        sideCounts = {};
+        FIELD_SIDE_OPTIONS[f.key].forEach(opt=> sideCounts[opt.val] = 0);
+        records.forEach(r=>{
+          const sv = r.sides && r.sides[f.key];
+          if(sv && sideCounts[sv] !== undefined){ sideCounts[sv]++; sideTotal++; }
+        });
+      }
+      if(vals.length === 0 && noTsuruCount === 0 && sideTotal === 0){
         html += `<div class="stat">${f.label}: データなし</div>`;
         return;
       }
@@ -658,6 +680,10 @@ function renderStats(records){
       }
       if(noTsuruCount > 0){
         line += vals.length>0 ? `／つる無し${noTsuruCount}回` : `つる無し${noTsuruCount}回`;
+      }
+      if(sideTotal > 0){
+        const parts = FIELD_SIDE_OPTIONS[f.key].map(opt=> `${opt.label}${sideCounts[opt.val]}回`);
+        line += (vals.length>0 || noTsuruCount>0) ? `／${parts.join('・')}（方向入力n=${sideTotal}）` : `${parts.join('・')}（方向入力n=${sideTotal}）`;
       }
       line += "</div>";
       html += line;
@@ -694,6 +720,7 @@ function startEditRecord(ts){
   if(!rec) return;
   practiceState = {
     values: { ...(rec.values||{}) },
+    sides: { ...(rec.sides||{}) },
     noTsuru: [...(rec.noTsuru||[])],
     penalties: [...(rec.penalties||[])],
     safety: [...(rec.safety||[])],
@@ -734,7 +761,7 @@ let practiceState = null;
 let practiceStepIndex = 0;
 
 function resetPracticeState(){
-  practiceState = { values:{}, noTsuru:[], penalties:[], safety:[], safetyOn:null };
+  practiceState = { values:{}, sides:{}, noTsuru:[], penalties:[], safety:[], safetyOn:null };
   practiceStepIndex = 0;
 }
 
@@ -776,6 +803,15 @@ function renderPracticeStep(i){
       <input type="text" inputmode="decimal" class="stepvalue" id="stepValue" placeholder="${f.unit}" value="${curVal}" ${isNoTsuru?"disabled":""}>
       <button type="button" class="stepbtn" id="stepPlus" ${isNoTsuru?"disabled":""} aria-label="増やす">＋</button>
     </div>`;
+    if(FIELD_SIDE_OPTIONS[f.key]){
+      const sideVal = practiceState.sides && practiceState.sides[f.key];
+      html += `<div class="maintabs" style="margin:0 0 12px">`;
+      FIELD_SIDE_OPTIONS[f.key].forEach(opt=>{
+        const sel = sideVal === opt.val;
+        html += `<button type="button" class="ghost tabbtn${sel?' active':''}" data-side="${opt.val}">${opt.label}</button>`;
+      });
+      html += `</div>`;
+    }
     if(f.zeroPenalty !== undefined){
       html += `<button type="button" class="optcard${isNoTsuru?' selected':''}" id="noTsuruToggle">つる無し（${f.zeroPenalty}点）<span class="checkbox">${isNoTsuru?'✓':''}</span></button>`;
     }
@@ -817,6 +853,16 @@ function renderPracticeStep(i){
     });
     document.getElementById("stepMinus").addEventListener("click", ()=> adjustPracticeValue(f, -1));
     document.getElementById("stepPlus").addEventListener("click", ()=> adjustPracticeValue(f, 1));
+    if(FIELD_SIDE_OPTIONS[f.key]){
+      body.querySelectorAll("[data-side]").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          if(!practiceState.sides) practiceState.sides = {};
+          const val = btn.dataset.side;
+          practiceState.sides[f.key] = (practiceState.sides[f.key] === val) ? null : val;
+          renderPracticeStep(i);
+        });
+      });
+    }
     if(f.zeroPenalty !== undefined){
       document.getElementById("noTsuruToggle").addEventListener("click", ()=>{
         const idx = practiceState.noTsuru.indexOf(f.key);
@@ -909,6 +955,10 @@ function renderPracticeStep(i){
       if(practiceState.noTsuru.includes(f.key)) valText = "つる無し";
       else if(practiceState.values[f.key] !== undefined && practiceState.values[f.key] !== "") valText = practiceState.values[f.key] + f.unit;
       else valText = "未測定";
+      if(FIELD_SIDE_OPTIONS[f.key] && practiceState.sides && practiceState.sides[f.key] && valText !== "未測定"){
+        const opt = FIELD_SIDE_OPTIONS[f.key].find(o=> o.val === practiceState.sides[f.key]);
+        if(opt) valText += `（${opt.label}）`;
+      }
       html += `<div style="display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px dashed var(--border); font-size:14.5px"><span>${f.label}</span><span style="font-weight:700">${valText}</span></div>`;
     });
     const penLabels = practiceState.penalties.map(k=>{ const p = PENALTY_ITEMS.find(x=>x.key===k); return p?p.label:k; });
@@ -1279,6 +1329,13 @@ function commitPracticeRecord(){
       if(!isNaN(n)) values[k] = n;
     }
   });
+  const sides = {};
+  if(practiceState.sides){
+    Object.keys(practiceState.sides).forEach(k=>{
+      const v = practiceState.sides[k];
+      if(v) sides[k] = v;
+    });
+  }
   const noTsuru = [...practiceState.noTsuru];
   const penalties = [...practiceState.penalties];
   const safety = practiceState.safetyOn ? [...practiceState.safety] : [];
@@ -1293,7 +1350,7 @@ function commitPracticeRecord(){
 
   if(isEditing && editIndex !== -1){
     // 編集：この端末内の記録だけを上書きする（新規のドキュメントは作らない／Firestoreへは送らない）
-    const record = { ts: practiceState.editingTs, values, noTsuru, penalties, safety, safetyOn: !!practiceState.safetyOn };
+    const record = { ts: practiceState.editingTs, values, sides, noTsuru, penalties, safety, safetyOn: !!practiceState.safetyOn };
     records[editIndex] = record;
     const ok = saveRecords(records);
     if(!ok){
@@ -1305,7 +1362,7 @@ function commitPracticeRecord(){
   }
 
   // 新規保存：これまで通りFirestoreにも一方通行で送信する
-  const record = { ts: Date.now(), values, noTsuru, penalties, safety, safetyOn: !!practiceState.safetyOn };
+  const record = { ts: Date.now(), values, sides, noTsuru, penalties, safety, safetyOn: !!practiceState.safetyOn };
   records.push(record);
   const ok = saveRecords(records);
   if(!ok){
