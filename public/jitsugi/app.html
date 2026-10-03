@@ -692,6 +692,24 @@ function renderStats(records){
       html += line;
     });
 
+    // 推移（直近5回 vs それ以前。練習を重ねて良くなっているかの参考）
+    const trendNotes = computeTrendNotes(records);
+    if(trendNotes.length > 0){
+      html += `<div class="stat" style="margin-top:14px;font-weight:700">推移（直近${TREND_RECENT_COUNT}回 vs それ以前）</div>`;
+      trendNotes.forEach(line=>{
+        html += `<div class="stat statSub" style="margin-top:4px">・${line}</div>`;
+      });
+    }
+
+    // 気づいたクセ（方向の偏り・つる無しの頻度。参考情報）
+    const habitNotes = computeHabitNotes(records);
+    if(habitNotes.length > 0){
+      html += `<div class="stat" style="margin-top:14px;font-weight:700">気づいたクセ</div>`;
+      habitNotes.forEach(line=>{
+        html += `<div class="stat statSub" style="margin-top:4px">・${line}</div>`;
+      });
+    }
+
     // 項目間の関連性（参考情報。採点・判定には一切使用しない）
     const correlations = computeFieldCorrelations(records);
     if(correlations.length > 0){
@@ -730,6 +748,80 @@ function fieldBiasText(f, vals){
   return above > below
     ? `→ 目標より大きい方へのズレが多い（${total}回中${above}回）`
     : `→ 目標より小さい方へのズレが多い（${total}回中${below}回）`;
+}
+
+// ============================================================
+// 推移（直近N回 vs それ以前）
+// ・練習を重ねて良くなっているかの参考。採点ロジックには使わない
+// ============================================================
+const TREND_RECENT_COUNT = 5;   // 「直近」とみなす件数
+const TREND_MIN_RECORDS = 8;    // これ未満の全体件数では表示しない
+const TREND_MIN_PER_GROUP = 2;  // 直近・以前それぞれ最低これだけデータが要る
+
+function computeTrendNotes(records){
+  if(records.length < TREND_MIN_RECORDS) return [];
+  const sorted = [...records].sort((a,b)=> b.ts - a.ts); // 新しい順
+  const recentRecords = sorted.slice(0, TREND_RECENT_COUNT);
+  const olderRecords = sorted.slice(TREND_RECENT_COUNT);
+  const notes = [];
+  FIELDS.forEach(f=>{
+    const absValsOf = (recs)=> recs
+      .filter(r=> !(r.noTsuru && r.noTsuru.includes(f.key)))
+      .map(r=> r.values[f.key])
+      .filter(v=> v !== undefined && v !== null && v !== "")
+      .map(v=> Math.abs(Number(v) - f.target));
+    const recentAbs = absValsOf(recentRecords);
+    const olderAbs = absValsOf(olderRecords);
+    if(recentAbs.length < TREND_MIN_PER_GROUP || olderAbs.length < TREND_MIN_PER_GROUP) return;
+    const recentAvg = recentAbs.reduce((a,b)=>a+b,0) / recentAbs.length;
+    const olderAvg = olderAbs.reduce((a,b)=>a+b,0) / olderAbs.length;
+    if(olderAvg === 0 && recentAvg === 0) return; // 元々ズレがない項目は出さない
+    let tag;
+    if(recentAvg <= olderAvg * 0.9) tag = "改善傾向";
+    else if(recentAvg >= olderAvg * 1.1) tag = "悪化傾向";
+    else tag = "横ばい";
+    notes.push(`${f.label}：直近${recentAbs.length}回の平均ズレ${recentAvg.toFixed(1)}${f.unit} ← 以前の平均ズレ${olderAvg.toFixed(1)}${f.unit}（${tag}）`);
+  });
+  return notes;
+}
+
+// ============================================================
+// 気づいたクセ（方向の偏り・つる無しの頻度）
+// ・既存の採点・データには一切影響しない、表示だけの参考情報
+// ============================================================
+const HABIT_SIDE_MIN_N = 4;        // 方向入力がこれ未満なら判定しない
+const HABIT_SIDE_MIN_RATIO = 0.65; // 片方がこの割合以上を占めたら「癖」とみなす
+const HABIT_NOTSURU_MIN_N = 3;         // つる無しの回数がこれ未満なら判定しない
+const HABIT_NOTSURU_MIN_RATIO = 0.3;   // 全体に対してこの割合以上なら「癖」とみなす
+
+function computeHabitNotes(records){
+  const notes = [];
+  FIELDS.forEach(f=>{
+    if(FIELD_SIDE_OPTIONS[f.key]){
+      const counts = {};
+      FIELD_SIDE_OPTIONS[f.key].forEach(opt=> counts[opt.val] = 0);
+      let total = 0;
+      records.forEach(r=>{
+        const sv = r.sides && r.sides[f.key];
+        if(sv && counts[sv] !== undefined){ counts[sv]++; total++; }
+      });
+      if(total >= HABIT_SIDE_MIN_N){
+        const sortedOpts = FIELD_SIDE_OPTIONS[f.key].slice().sort((a,b)=> counts[b.val]-counts[a.val]);
+        const top = sortedOpts[0];
+        const ratio = counts[top.val] / total;
+        if(ratio >= HABIT_SIDE_MIN_RATIO){
+          notes.push(`${f.label}は${top.label}になる癖があります（${total}回中${counts[top.val]}回）`);
+        }
+      }
+    }
+    if(f.zeroPenalty !== undefined){
+      const noTsuruCount = records.filter(r=> r.noTsuru && r.noTsuru.includes(f.key)).length;
+      if(records.length > 0 && noTsuruCount >= HABIT_NOTSURU_MIN_N && (noTsuruCount / records.length) >= HABIT_NOTSURU_MIN_RATIO){
+        notes.push(`${f.label}は「つる無し」を選ぶ癖があります（全${records.length}回中${noTsuruCount}回）`);
+      }
+    }
+  });
+  return notes;
 }
 
 function fieldDeviationsAligned(f, records){
