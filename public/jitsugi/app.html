@@ -765,22 +765,42 @@ function computeTrendNotes(records){
   const olderRecords = sorted.slice(TREND_RECENT_COUNT);
   const notes = [];
   FIELDS.forEach(f=>{
-    const absValsOf = (recs)=> recs
+    const signedValsOf = (recs)=> recs
       .filter(r=> !(r.noTsuru && r.noTsuru.includes(f.key)))
       .map(r=> r.values[f.key])
       .filter(v=> v !== undefined && v !== null && v !== "")
-      .map(v=> Math.abs(Number(v) - f.target));
-    const recentAbs = absValsOf(recentRecords);
-    const olderAbs = absValsOf(olderRecords);
-    if(recentAbs.length < TREND_MIN_PER_GROUP || olderAbs.length < TREND_MIN_PER_GROUP) return;
-    const recentAvg = recentAbs.reduce((a,b)=>a+b,0) / recentAbs.length;
-    const olderAvg = olderAbs.reduce((a,b)=>a+b,0) / olderAbs.length;
+      .map(v=> Number(v) - f.target);
+    const recentSigned = signedValsOf(recentRecords);
+    const olderSigned = signedValsOf(olderRecords);
+    if(recentSigned.length < TREND_MIN_PER_GROUP || olderSigned.length < TREND_MIN_PER_GROUP) return;
+    const avg = (arr)=> arr.reduce((a,b)=>a+b,0) / arr.length;
+    const recentAbs = recentSigned.map(Math.abs);
+    const olderAbs = olderSigned.map(Math.abs);
+    const recentAvg = avg(recentAbs);
+    const olderAvg = avg(olderAbs);
     if(olderAvg === 0 && recentAvg === 0) return; // 元々ズレがない項目は出さない
     let tag;
     if(recentAvg <= olderAvg * 0.9) tag = "改善傾向";
     else if(recentAvg >= olderAvg * 1.1) tag = "悪化傾向";
     else tag = "横ばい";
-    notes.push(`${f.label}：直近${recentAbs.length}回の平均ズレ${recentAvg.toFixed(1)}${f.unit} ← 以前の平均ズレ${olderAvg.toFixed(1)}${f.unit}（${tag}）`);
+
+    // 満点の範囲に入っているか（f.bands の最初の区間＝満点の区間を基準に判定。採点ロジックはここでも変更しない）
+    const fullMarkLimit = f.bands[0][0];
+    let rangeNote;
+    if(recentAvg <= fullMarkLimit){
+      rangeNote = "直近は満点の範囲内";
+    }else{
+      const recentSignedAvg = avg(recentSigned);
+      if(Math.abs(recentSignedAvg) < 0.0001){
+        rangeNote = "直近は満点の範囲外";
+      }else if(recentSignedAvg > 0){
+        rangeNote = "直近は満点の範囲外・高めの傾向";
+      }else{
+        rangeNote = "直近は満点の範囲外・低めの傾向";
+      }
+    }
+
+    notes.push(`${f.label}：直近${recentAbs.length}回の平均ズレ${recentAvg.toFixed(1)}${f.unit} ← 以前の平均ズレ${olderAvg.toFixed(1)}${f.unit}（${tag}／${rangeNote}）`);
   });
   return notes;
 }
