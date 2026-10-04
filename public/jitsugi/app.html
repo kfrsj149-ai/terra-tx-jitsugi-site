@@ -632,7 +632,11 @@ function renderStats(records){
         return;
       }
       const avg = pts.reduce((a,b)=>a+b,0) / pts.length;
-      html += `<div class="stat">${f.label}: 平均得点 <span class="${avg>=f.maxPt?'diff-ok':(avg<0?'diff-over':'diff-under')}">${avg.toFixed(1)}</span> / ${f.maxPt}点（n=${pts.length}）</div>`;
+      let line = `<div class="stat">${f.label}: 平均得点 <span class="${avg>=f.maxPt?'diff-ok':(avg<0?'diff-over':'diff-under')}">${avg.toFixed(1)}</span> / ${f.maxPt}点（n=${pts.length}）`;
+      const lossBias = fieldPointsLossBiasText(f, pts);
+      if(lossBias) line += `<br><span class="statSub">${lossBias}</span>`;
+      line += "</div>";
+      html += line;
     });
     const withTotals = records.map(r=>{
       let t = 0, any=false;
@@ -650,6 +654,15 @@ function renderStats(records){
     if(withTotals.length>0){
       const avgPct = withTotals.reduce((a,x)=> a + (x.max>0 ? x.total/x.max : 0), 0) / withTotals.length;
       html += `<div class="stat" style="margin-top:8px;font-weight:700">合計得点率の平均：${(avgPct*100).toFixed(1)}%（伐倒方向未測定の回は80点満点換算で比較）</div>`;
+    }
+
+    // 推移（直近5回 vs それ以前。得点モード版）
+    const trendNotesPoints = computeTrendNotesPoints(records);
+    if(trendNotesPoints.length > 0){
+      html += `<div class="stat" style="margin-top:14px;font-weight:700">推移（直近${TREND_RECENT_COUNT}回 vs それ以前）</div>`;
+      trendNotesPoints.forEach(line=>{
+        html += `<div class="stat statSub" style="margin-top:4px">・${line}</div>`;
+      });
     }
   }else{
     FIELDS.forEach(f=>{
@@ -750,6 +763,23 @@ function fieldBiasText(f, vals){
     : `→ 目標より小さい方へのズレが多い（${total}回中${below}回）`;
 }
 
+// 得点モード：減点が出たとき、小さめの減点が多いか大きめの減点が多いか（参考情報）
+function fieldPointsLossBiasText(f, pts){
+  const losses = pts.map(p=> f.maxPt - p).filter(d=> d > 0.0001);
+  if(losses.length < 4) return ""; // データが少なすぎるうちは出さない
+  const half = f.maxPt / 2;
+  let small = 0, large = 0;
+  losses.forEach(d=>{
+    if(d < half) small++;
+    else if(d > half) large++;
+  });
+  if(small === large) return "";
+  const total = losses.length;
+  return small > large
+    ? `→ 減点が出たときは小さめの減点が多い（減点あり${total}回中${small}回）`
+    : `→ 減点が出たときは大きめの減点が多い（減点あり${total}回中${large}回）`;
+}
+
 // ============================================================
 // 推移（直近N回 vs それ以前）
 // ・練習を重ねて良くなっているかの参考。採点ロジックには使わない
@@ -802,6 +832,58 @@ function computeTrendNotes(records){
 
     notes.push(`${f.label}：直近${recentAbs.length}回の平均ズレ${recentAvg.toFixed(1)}${f.unit} ← 以前の平均ズレ${olderAvg.toFixed(1)}${f.unit}（${tag}／${rangeNote}）`);
   });
+  return notes;
+}
+
+// 推移（得点モード版）：減点量（満点－得点）の大小で改善/悪化を判定し、得点として表示する
+function computeTrendNotesPoints(records){
+  if(records.length < TREND_MIN_RECORDS) return [];
+  const sorted = [...records].sort((a,b)=> b.ts - a.ts); // 新しい順
+  const recentRecords = sorted.slice(0, TREND_RECENT_COUNT);
+  const olderRecords = sorted.slice(TREND_RECENT_COUNT);
+  const avg = (arr)=> arr.reduce((a,b)=>a+b,0) / arr.length;
+  const notes = [];
+
+  FIELDS.forEach(f=>{
+    const lossOf = (recs)=> recs.map(r=> fieldPoints(f, r)).filter(p=> p !== null).map(p=> f.maxPt - p);
+    const recentLoss = lossOf(recentRecords);
+    const olderLoss = lossOf(olderRecords);
+    if(recentLoss.length < TREND_MIN_PER_GROUP || olderLoss.length < TREND_MIN_PER_GROUP) return;
+    const recentAvgLoss = avg(recentLoss);
+    const olderAvgLoss = avg(olderLoss);
+    if(olderAvgLoss === 0 && recentAvgLoss === 0) return; // 常に満点の項目は出さない
+    let tag;
+    if(recentAvgLoss <= olderAvgLoss * 0.9) tag = "改善傾向";
+    else if(recentAvgLoss >= olderAvgLoss * 1.1) tag = "悪化傾向";
+    else tag = "横ばい";
+    const rangeNote = recentAvgLoss <= 0.0001 ? "直近は満点" : "直近は満点未満";
+    const recentAvgPts = f.maxPt - recentAvgLoss;
+    const olderAvgPts = f.maxPt - olderAvgLoss;
+    notes.push(`${f.label}：直近${recentLoss.length}回の平均得点${recentAvgPts.toFixed(1)} ← 以前の平均得点${olderAvgPts.toFixed(1)} / ${f.maxPt}点（${tag}／${rangeNote}）`);
+  });
+
+  // 合計得点率の推移
+  const pctOf = (recs)=>{
+    const withTotals = recs.map(r=>{
+      let t = 0, any = false;
+      FIELDS.forEach(f=>{ const pt = fieldPoints(f, r); if(pt !== null){ t += pt; any = true; } });
+      (r.penalties||[]).forEach(k=>{ const p = PENALTY_ITEMS.find(x=>x.key===k); if(p) t += p.pt; });
+      t += recordSafetyTotal(r);
+      return any ? { total: t, max: recordEffectiveMax(r) } : null;
+    }).filter(x=> x !== null);
+    if(withTotals.length === 0) return null;
+    return withTotals.reduce((a,x)=> a + (x.max > 0 ? x.total/x.max : 0), 0) / withTotals.length;
+  };
+  const recentPct = pctOf(recentRecords);
+  const olderPct = pctOf(olderRecords);
+  if(recentPct !== null && olderPct !== null){
+    let tag;
+    if(recentPct >= olderPct + 0.03) tag = "改善傾向";       // 3ポイント以上の差
+    else if(recentPct <= olderPct - 0.03) tag = "悪化傾向";
+    else tag = "横ばい";
+    notes.push(`合計得点率：直近${(recentPct*100).toFixed(1)}% ← 以前${(olderPct*100).toFixed(1)}%（${tag}）`);
+  }
+
   return notes;
 }
 
