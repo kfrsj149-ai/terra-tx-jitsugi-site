@@ -766,7 +766,9 @@ function fieldBiasText(f, vals){
 // 得点モード：減点が出たとき、小さめの減点が多いか大きめの減点が多いか（参考情報）
 // 得点モード：減点が出た回について、実測値が目標より小さい方で起きているか
 // 大きい方で起きているかを表示する（減点の大きさではなく、ズレの向きを見る）
-function fieldPointsLossBiasText(f, records){
+// 減点が出た回（満点でない回）だけを対象に、実測値が目標より大きい方／小さい方
+// どちらへのズレで減点になっているかを数える。向きの判定だけを行い、文章化は呼び出し側で行う
+function fieldLossDirectionCounts(f, records){
   const dirs = records.map(r=>{
     if(r.noTsuru && r.noTsuru.includes(f.key)) return null; // つる無しは実測値がないので対象外
     const v = r.values[f.key];
@@ -778,11 +780,15 @@ function fieldPointsLossBiasText(f, records){
     if(d < -0.0001) return "under";
     return null;
   }).filter(x=> x !== null);
-  if(dirs.length < 4) return ""; // データが少なすぎるうちは出さない
   const over = dirs.filter(x=> x === "over").length;
   const under = dirs.filter(x=> x === "under").length;
+  return { over, under, total: dirs.length };
+}
+
+function fieldPointsLossBiasText(f, records){
+  const { over, under, total } = fieldLossDirectionCounts(f, records);
+  if(total < 4) return ""; // データが少なすぎるうちは出さない
   if(over === under) return "";
-  const total = dirs.length;
   return over > under
     ? `→ 減点は目標より大きい方へのズレで起きやすい（減点あり${total}回中${over}回）`
     : `→ 減点は目標より小さい方へのズレで起きやすい（減点あり${total}回中${under}回）`;
@@ -867,7 +873,23 @@ function computeTrendNotesPoints(records){
     const rangeNote = recentAvgLoss <= 0.0001 ? "直近は満点" : "直近は満点未満";
     const recentAvgPts = f.maxPt - recentAvgLoss;
     const olderAvgPts = f.maxPt - olderAvgLoss;
-    notes.push(`${f.label}：直近${recentLoss.length}回の平均得点${recentAvgPts.toFixed(1)} ← 以前の平均得点${olderAvgPts.toFixed(1)} / ${f.maxPt}点（${tag}／${rangeNote}）`);
+
+    // 減点の向き（目標より大きい方／小さい方）を、直近・以前それぞれで見る
+    const dirPhrase = (d)=>{
+      if(d.total < 3 || d.over === d.under) return null;
+      return d.over > d.under ? `大きい方へのズレ（${d.total}中${d.over}）` : `小さい方へのズレ（${d.total}中${d.under}）`;
+    };
+    const recentDirPhrase = dirPhrase(fieldLossDirectionCounts(f, recentRecords));
+    const olderDirPhrase = dirPhrase(fieldLossDirectionCounts(f, olderRecords));
+    let dirLine = "";
+    if(recentDirPhrase || olderDirPhrase){
+      const parts = [];
+      parts.push(`直近は${recentDirPhrase || "減点が少なく判定不可"}`);
+      parts.push(`以前は${olderDirPhrase || "減点が少なく判定不可"}`);
+      dirLine = `<br><span class="statSub">　減点の向き：${parts.join('・')}</span>`;
+    }
+
+    notes.push(`${f.label}：直近${recentLoss.length}回の平均得点${recentAvgPts.toFixed(1)} ← 以前の平均得点${olderAvgPts.toFixed(1)} / ${f.maxPt}点（${tag}／${rangeNote}）${dirLine}`);
   });
 
   // 合計得点率の推移
