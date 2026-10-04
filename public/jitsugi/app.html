@@ -635,6 +635,8 @@ function renderStats(records){
       let line = `<div class="stat">${f.label}: 平均得点 <span class="${avg>=f.maxPt?'diff-ok':(avg<0?'diff-over':'diff-under')}">${avg.toFixed(1)}</span> / ${f.maxPt}点（n=${pts.length}）`;
       const lossBias = fieldPointsLossBiasText(f, records);
       if(lossBias) line += `<br><span class="statSub">${lossBias}</span>`;
+      const sideLossBias = fieldSideLossBiasText(f, records);
+      if(sideLossBias) line += `<br><span class="statSub">${sideLossBias}</span>`;
       line += "</div>";
       html += line;
     });
@@ -701,6 +703,8 @@ function renderStats(records){
       }
       const bias = fieldBiasText(f, vals);
       if(bias) line += `<br><span class="statSub">${bias}</span>`;
+      const sideBias = fieldSideDeviationText(f, records);
+      if(sideBias) line += `<br><span class="statSub">${sideBias}</span>`;
       line += "</div>";
       html += line;
     });
@@ -724,11 +728,12 @@ function renderStats(records){
     }
 
     // 項目間の関連性（参考情報。採点・判定には一切使用しない）
-    const correlations = computeFieldCorrelations(records);
+    // ※ 先上がり／先下がり・左右など「方向」の選択も変数の一つとして含めて計算する
+    const correlations = computeFieldCorrelationsGeneric(records);
     if(correlations.length > 0){
       html += `<div class="stat" style="margin-top:14px;font-weight:700">項目間の関連性（参考・因果関係を示すものではありません）</div>`;
       correlations.forEach(item=>{
-        html += `<div class="stat statSub" style="margin-top:4px">・${correlationSentence(item)}</div>`;
+        html += `<div class="stat statSub" style="margin-top:4px">・${correlationSentenceGeneric(item)}</div>`;
       });
     }else if(records.length >= 6){
       html += `<div class="stat statSub" style="margin-top:14px">項目間の関連性：まだ目立った傾向は見つかっていません（参考情報）</div>`;
@@ -763,6 +768,27 @@ function fieldBiasText(f, vals){
     : `→ 目標より小さい方へのズレが多い（${total}回中${below}回）`;
 }
 
+// 実測値モード：先上がり／先下がり（左／右）など「方向」の選択ごとに、
+// 平均ズレ（実測値－目標値）がどう違うかを表示する（参考情報。採点には使わない）
+function fieldSideDeviationText(f, records){
+  const opts = FIELD_SIDE_OPTIONS[f.key];
+  if(!opts) return "";
+  const stats = opts.map(opt=>{
+    const vals = records
+      .filter(r=> r.sides && r.sides[f.key] === opt.val)
+      .filter(r=> !(r.noTsuru && r.noTsuru.includes(f.key)))
+      .map(r=> r.values[f.key])
+      .filter(v=> v !== undefined && v !== null && v !== "")
+      .map(Number);
+    if(vals.length === 0) return { opt, n: 0, avg: null };
+    const avg = vals.reduce((a,b)=>a+b,0) / vals.length - f.target;
+    return { opt, n: vals.length, avg };
+  });
+  if(stats.some(s=> s.n < 3)) return ""; // どちらかのデータが少なすぎるうちは出さない
+  const parts = stats.map(s=> `${s.opt.label}平均${s.avg>=0?"+":""}${s.avg.toFixed(1)}${f.unit}（n=${s.n}）`);
+  return `→ 方向別の平均ズレ：${parts.join('／')}`;
+}
+
 // 得点モード：減点が出たとき、小さめの減点が多いか大きめの減点が多いか（参考情報）
 // 得点モード：減点が出た回について、実測値が目標より小さい方で起きているか
 // 大きい方で起きているかを表示する（減点の大きさではなく、ズレの向きを見る）
@@ -792,6 +818,34 @@ function fieldPointsLossBiasText(f, records){
   return over > under
     ? `→ 減点は目標より大きい方へのズレで起きやすい（減点あり${total}回中${over}回）`
     : `→ 減点は目標より小さい方へのズレで起きやすい（減点あり${total}回中${under}回）`;
+}
+
+// 得点モード：先上がり／先下がり（左／右）など「方向」の選択ごとに、
+// 減点が出る割合（満点でない回の割合）がどう違うかを数える・文章にする（参考情報）
+function fieldSideLossCounts(f, records){
+  const opts = FIELD_SIDE_OPTIONS[f.key];
+  if(!opts) return null;
+  return opts.map(opt=>{
+    const recs = records.filter(r=> r.sides && r.sides[f.key] === opt.val);
+    let loss = 0, total = 0;
+    recs.forEach(r=>{
+      const pt = fieldPoints(f, r);
+      if(pt === null) return;
+      total++;
+      if(pt < f.maxPt - 0.0001) loss++;
+    });
+    return { opt, loss, total, rate: total > 0 ? loss / total : null };
+  });
+}
+
+function fieldSideLossBiasText(f, records){
+  const stats = fieldSideLossCounts(f, records);
+  if(!stats) return "";
+  if(stats.some(s=> s.total < 3 || s.rate === null)) return ""; // データが少なすぎるうちは出さない
+  const sorted = [...stats].sort((a,b)=> b.rate - a.rate);
+  if(Math.abs(sorted[0].rate - sorted[sorted.length-1].rate) < 0.0001) return ""; // 差がなければ出さない
+  const parts = stats.map(s=> `${s.opt.label}${(s.rate*100).toFixed(0)}%（${s.total}中${s.loss}回）`);
+  return `→ 方向別の減点率：${parts.join('／')}`;
 }
 
 // ============================================================
@@ -844,9 +898,39 @@ function computeTrendNotes(records){
       }
     }
 
-    notes.push(`${f.label}：直近${recentAbs.length}回の平均ズレ${recentAvg.toFixed(1)}${f.unit} ← 以前の平均ズレ${olderAvg.toFixed(1)}${f.unit}（${tag}／${rangeNote}）`);
+    const sideTrendLine = fieldSideDeviationTrendLine(f, recentRecords, olderRecords);
+    notes.push(`${f.label}：直近${recentAbs.length}回の平均ズレ${recentAvg.toFixed(1)}${f.unit} ← 以前の平均ズレ${olderAvg.toFixed(1)}${f.unit}（${tag}／${rangeNote}）${sideTrendLine}`);
   });
   return notes;
+}
+
+// 実測値モード・推移：先上がり／先下がり（左／右）など「方向」ごとの平均ズレを、
+// 直近・以前それぞれで比較する一行を作る（データが少ない方向は「データ不足」と表示）
+function fieldSideDeviationTrendLine(f, recentRecords, olderRecords){
+  const opts = FIELD_SIDE_OPTIONS[f.key];
+  if(!opts) return "";
+  const avgFor = (recs, val)=>{
+    const vals = recs
+      .filter(r=> r.sides && r.sides[f.key] === val)
+      .filter(r=> !(r.noTsuru && r.noTsuru.includes(f.key)))
+      .map(r=> r.values[f.key])
+      .filter(v=> v !== undefined && v !== null && v !== "")
+      .map(Number);
+    if(vals.length < TREND_MIN_PER_GROUP) return null;
+    const avg = vals.reduce((a,b)=>a+b,0) / vals.length - f.target;
+    return { avg, n: vals.length };
+  };
+  const parts = [];
+  opts.forEach(opt=>{
+    const rec = avgFor(recentRecords, opt.val);
+    const old = avgFor(olderRecords, opt.val);
+    if(!rec && !old) return;
+    const recStr = rec ? `${rec.avg>=0?"+":""}${rec.avg.toFixed(1)}${f.unit}(n=${rec.n})` : "データ不足";
+    const oldStr = old ? `${old.avg>=0?"+":""}${old.avg.toFixed(1)}${f.unit}(n=${old.n})` : "データ不足";
+    parts.push(`${opt.label}：直近${recStr}←以前${oldStr}`);
+  });
+  if(parts.length === 0) return "";
+  return `<br><span class="statSub">　方向別の推移：${parts.join('・')}</span>`;
 }
 
 // 推移（得点モード版）：減点量（満点－得点）の大小で改善/悪化を判定し、得点として表示する
@@ -889,7 +973,10 @@ function computeTrendNotesPoints(records){
       dirLine = `<br><span class="statSub">　減点の向き：${parts.join('・')}</span>`;
     }
 
-    notes.push(`${f.label}：直近${recentLoss.length}回の平均得点${recentAvgPts.toFixed(1)} ← 以前の平均得点${olderAvgPts.toFixed(1)} / ${f.maxPt}点（${tag}／${rangeNote}）${dirLine}`);
+    // 先上がり／先下がり（左／右）など「方向」ごとの減点率を、直近・以前それぞれで比較
+    const sideLossTrendLine = fieldSideLossTrendLine(f, recentRecords, olderRecords);
+
+    notes.push(`${f.label}：直近${recentLoss.length}回の平均得点${recentAvgPts.toFixed(1)} ← 以前の平均得点${olderAvgPts.toFixed(1)} / ${f.maxPt}点（${tag}／${rangeNote}）${dirLine}${sideLossTrendLine}`);
   });
 
   // 合計得点率の推移
@@ -915,6 +1002,27 @@ function computeTrendNotesPoints(records){
   }
 
   return notes;
+}
+
+// 得点モード・推移：先上がり／先下がり（左／右）など「方向」ごとの減点率を、
+// 直近・以前それぞれで比較する一行を作る（データが少ない方は「データ不足」と表示）
+function fieldSideLossTrendLine(f, recentRecords, olderRecords){
+  const opts = FIELD_SIDE_OPTIONS[f.key];
+  if(!opts) return "";
+  const fmt = (recs)=>{
+    const stats = fieldSideLossCounts(f, recs);
+    if(!stats) return null;
+    const parts = stats.map(s=>{
+      if(s.total < 2) return `${s.opt.label}データ不足`;
+      return `${s.opt.label}${(s.rate*100).toFixed(0)}%(${s.total}中${s.loss})`;
+    });
+    if(stats.every(s=> s.total < 2)) return null;
+    return parts.join('・');
+  };
+  const recentStr = fmt(recentRecords);
+  const olderStr = fmt(olderRecords);
+  if(!recentStr && !olderStr) return "";
+  return `<br><span class="statSub">　方向別の減点率：直近[${recentStr || "データ不足"}]／以前[${olderStr || "データ不足"}]</span>`;
 }
 
 // ============================================================
@@ -1006,6 +1114,79 @@ function correlationSentence(item){
   const { fa, fb, r, n } = item;
   const dir = r > 0 ? "大きく" : "小さく";
   return `${fa.label}が目標より大きくなるほど、${fb.label}も目標より${dir}なる傾向があります（n=${n}）`;
+}
+
+// ============================================================
+// 項目間の関連性（方向つき版）
+// ・上の「ズレ同士」の相関に加えて、先上がり／先下がり（左／右）など
+//   「方向」の選択も変数の一つとして扱い、方向とズレ・方向と方向の関連も見る
+// ・方向は -1／+1 に数値化するだけで、採点ロジックや元データは一切変更しない
+// ============================================================
+function fieldSideSignedValues(f, records){
+  const opts = FIELD_SIDE_OPTIONS[f.key];
+  if(!opts) return null;
+  // opts[0]（左／先下がり）を -1、opts[1]（右／先上がり）を +1 とする。選択なしは null（データなし）
+  return records.map(r=>{
+    const sv = r.sides && r.sides[f.key];
+    if(!sv) return null;
+    const idx = opts.findIndex(o=> o.val === sv);
+    if(idx === -1) return null;
+    return idx === 0 ? -1 : 1;
+  });
+}
+
+function buildCorrelationVariables(records){
+  const vars = [];
+  FIELDS.forEach(f=>{
+    vars.push({ key: `dev:${f.key}`, fieldKey: f.key, type: "dev", label: f.label, values: fieldDeviationsAligned(f, records) });
+  });
+  Object.keys(FIELD_SIDE_OPTIONS).forEach(fk=>{
+    const f = FIELDS.find(x=> x.key === fk);
+    if(!f) return;
+    vars.push({ key: `side:${fk}`, fieldKey: fk, type: "side", label: `${f.label}の方向`, values: fieldSideSignedValues(f, records), opts: FIELD_SIDE_OPTIONS[fk] });
+  });
+  return vars;
+}
+
+function computeFieldCorrelationsGeneric(records){
+  const vars = buildCorrelationVariables(records);
+  const results = [];
+  for(let i=0;i<vars.length;i++){
+    for(let j=i+1;j<vars.length;j++){
+      const va = vars[i], vb = vars[j];
+      if(va.fieldKey === vb.fieldKey) continue; // 同じ項目の「ズレ」と「方向」を比べても意味がないので除外
+      const xs = [], ys = [];
+      for(let k=0;k<records.length;k++){
+        if(va.values[k] !== null && vb.values[k] !== null){ xs.push(va.values[k]); ys.push(vb.values[k]); }
+      }
+      if(xs.length < CORRELATION_MIN_N) continue;
+      const r = pearsonCorrelation(xs, ys);
+      if(r === null || Math.abs(r) < CORRELATION_MIN_R) continue;
+      results.push({ va, vb, r, n: xs.length });
+    }
+  }
+  results.sort((a,b)=> Math.abs(b.r) - Math.abs(a.r));
+  return results.slice(0, CORRELATION_MAX_RESULTS);
+}
+
+function correlationSentenceGeneric(item){
+  const { va, vb, r, n } = item;
+  if(va.type === "dev" && vb.type === "dev"){
+    const dir = r > 0 ? "大きく" : "小さく";
+    return `${va.label}が目標より大きくなるほど、${vb.label}も目標より${dir}なる傾向があります（n=${n}）`;
+  }
+  let sideVar = null, devVar = null;
+  if(va.type === "side" && vb.type === "dev"){ sideVar = va; devVar = vb; }
+  else if(vb.type === "side" && va.type === "dev"){ sideVar = vb; devVar = va; }
+  if(sideVar && devVar){
+    // opts[0]=-1側、opts[1]=+1側。r>0なら+1側（opts[1]）のときdevVarが大きい、r<0なら-1側（opts[0]）のときdevVarが大きい
+    const biasedOpt = r > 0 ? sideVar.opts[1] : sideVar.opts[0];
+    return `${sideVar.label}が${biasedOpt.label}のとき、${devVar.label}は目標より大きい傾向があります（n=${n}）`;
+  }
+  // 方向どうしの関連（まれ）
+  const aOpt = r > 0 ? va.opts[1] : va.opts[0];
+  const bOpt = r > 0 ? vb.opts[1] : vb.opts[0];
+  return `${va.label}が${aOpt.label}のとき、${vb.label}は${bOpt.label}になりやすい傾向があります（n=${n}）`;
 }
 
 function handleClear(){
