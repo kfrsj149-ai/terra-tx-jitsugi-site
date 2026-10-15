@@ -107,6 +107,7 @@
       <div id="byPain"></div>
 
       <h2>リード一覧</h2>
+      <div id="hiddenNote" style="font-size:12px; color:var(--silver-dim); margin:-4px 0 10px;"></div>
       <div class="leadtable">
         <table>
           <thead>
@@ -146,6 +147,20 @@
     painPoints: { aggregation:"集計に時間がかかる", paper:"紙の管理が煩雑", transcribe:"紙→Excel転記が二度手間", fuel:"燃料使用量の把握が不正確", visibility:"稼働状況が見えにくい", tax_form:"免税軽油の申請書類が大変", none:"特にない", other:"その他" },
   };
 
+  // 管理者のテスト入力を集計から外すための一覧（表示だけ除外。データベースの中身は消さない）
+  // 氏名・会社名の空白を除いて、完全一致で判定する
+  const TEST_LEADS = [
+    ["神田慎太郎", "test"], ["神田慎太郎", "杉澤林業株式会社"], ["神田慎太郎", "TERRA TX"],
+    ["ShintaroKanda", "TERRA TX"], ["ShintaroKanda", "test"], ["神田", "TERRA TX"],
+    ["伐木太郎", "テスト林業"], ["テスト", "テスト林業"],
+    ["あ", "ぴ"], ["し", "し"],
+  ];
+  const squash = (s)=> String(s || "").replace(/[\s　]+/g, "");
+  function isTestLead(d){
+    const n = squash(d.name), c = squash(d.company);
+    return TEST_LEADS.some(([tn, tc])=> tn === n && tc === c);
+  }
+
   function bar(label, count, max){
     const pct = max > 0 ? Math.round((count / max) * 100) : 0;
     return `<tr><td style="width:40%">${label}</td><td>
@@ -171,11 +186,17 @@
       const snap = await getDocs(collection(db, "jitsugi_practice"));
       const surveys = [];
       let recordCount = 0;
+      let hiddenCount = 0;
       snap.forEach(doc=>{
         const d = doc.data();
-        if(d.type === "survey") surveys.push(d);
+        if(d.type === "survey"){
+          if(isTestLead(d)){ hiddenCount++; }
+          else surveys.push(d);
+        }
         else if(d.type === "practice_record") recordCount++;
       });
+      const hiddenEl = document.getElementById("hiddenNote");
+      if(hiddenEl) hiddenEl.textContent = hiddenCount > 0 ? `※ 管理者のテスト入力${hiddenCount}件は集計とリード一覧から除外しています（データは消えていません）` : "";
 
       document.getElementById("statUsers").textContent = surveys.length;
       document.getElementById("statRecords").textContent = recordCount;
