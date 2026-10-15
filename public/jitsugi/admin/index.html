@@ -158,7 +158,7 @@
   const squash = (s)=> String(s || "").replace(/[\s　]+/g, "");
   function isTestLead(d){
     const n = squash(d.name), c = squash(d.company);
-    return TEST_LEADS.some(([tn, tc])=> tn === n && tc === c);
+    return TEST_LEADS.some(([tn, tc])=> squash(tn) === n && squash(tc) === c);
   }
 
   function bar(label, count, max){
