@@ -111,7 +111,7 @@
       <div class="leadtable">
         <table>
           <thead>
-            <tr><th>日時</th><th>お名前</th><th>会社名</th><th>地域</th><th>連絡先</th></tr>
+            <tr><th>日時</th><th>お名前</th><th>練習回数</th><th>会社名</th><th>地域</th><th>連絡先</th></tr>
           </thead>
           <tbody id="leadRows"></tbody>
         </table>
@@ -186,6 +186,7 @@
       const snap = await getDocs(collection(db, "jitsugi_practice"));
       const surveys = [];
       let recordCount = 0;
+      const practiceByUid = {}; // 利用者ごとの練習回数（保存時に送られた記録の数）
       let hiddenCount = 0;
       snap.forEach(doc=>{
         const d = doc.data();
@@ -193,7 +194,10 @@
           if(isTestLead(d)){ hiddenCount++; }
           else surveys.push(d);
         }
-        else if(d.type === "practice_record") recordCount++;
+        else if(d.type === "practice_record"){
+          recordCount++;
+          if(d.uid) practiceByUid[d.uid] = (practiceByUid[d.uid]||0) + 1;
+        }
       });
       const hiddenEl = document.getElementById("hiddenNote");
       if(hiddenEl) hiddenEl.textContent = hiddenCount > 0 ? `※ 管理者のテスト入力${hiddenCount}件は集計とリード一覧から除外しています（データは消えていません）` : "";
@@ -240,7 +244,7 @@
       });
       const leadRows = document.getElementById("leadRows");
       if(sortedLeads.length === 0){
-        leadRows.innerHTML = '<tr><td colspan="5" class="empty">まだリードがありません</td></tr>';
+        leadRows.innerHTML = '<tr><td colspan="6" class="empty">まだリードがありません</td></tr>';
       }else{
         leadRows.innerHTML = sortedLeads.map(s=>{
           let dateStr = "-";
@@ -252,6 +256,7 @@
           return `<tr>
             <td>${dateStr}</td>
             <td>${s.name || "-"}</td>
+            <td>${s.uid ? (practiceByUid[s.uid]||0) + "回" : "-"}</td>
             <td>${s.company || "-"}</td>
             <td>${region}</td>
             <td>${s.contact || "-"}</td>
